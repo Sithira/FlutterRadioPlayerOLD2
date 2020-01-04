@@ -1,13 +1,17 @@
 import 'dart:async';
-import 'dart:wasm';
 
 import 'package:flutter/services.dart';
+import 'package:rxdart/rxdart.dart';
 
 class FlutterRadioPlayer {
+  static const MethodChannel _channel =
+      const MethodChannel('flutter_radio_player');
 
-  static const MethodChannel _channel = const MethodChannel('flutter_radio_player');
+  static const EventChannel _eventChannel = const EventChannel("flutter_radio_player_stream");
 
-  static Future<Void> init(String appName, String subTitle, String streamURL,
+  static Stream<bool> _isPlayingStream;
+
+  Future<void> init(String appName, String subTitle, String streamURL,
       String albumCover, String appIcon) async {
     return await _channel.invokeMethod("initService", {
       "streamURL": streamURL,
@@ -18,19 +22,32 @@ class FlutterRadioPlayer {
     });
   }
 
-  static Future<bool> play() async {
+  Future<bool> play() async {
     return await _channel.invokeMethod("play");
   }
 
-  static Future<bool> pause() async {
+  Future<bool> pause() async {
     return await _channel.invokeMethod("pause");
   }
 
-  static Future<bool> stop() async {
+  Future<bool> playOrPause() async {
+    return await _channel.invokeMethod("playOrPause");
+  }
+
+  Future<bool> stop() async {
     return await _channel.invokeMethod("stop");
   }
 
-  static Future<bool> isPlaying() async {
-    return await _channel.invokeMethod("isPlaying");
+  Future<bool> isPlaying() async {
+    bool isPlaying = await _channel.invokeMethod("isPlaying");
+    return isPlaying;
   }
+
+  get isPlayingStream {
+    if (_isPlayingStream == null) {
+      _isPlayingStream = _eventChannel.receiveBroadcastStream().map<bool>((value) => value);
+    }
+    return _isPlayingStream;
+  }
+
 }

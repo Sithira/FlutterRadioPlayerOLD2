@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_radio_player/flutter_radio_player.dart';
 
@@ -12,8 +12,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-
-  bool isPlaying = false;
+  FlutterRadioPlayer _flutterRadioPlayer = FlutterRadioPlayer();
 
   @override
   void initState() {
@@ -23,7 +22,8 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> initRadioService() async {
     try {
-      await FlutterRadioPlayer.init("Flutter Radio Example", "Live", "http://142.4.217.133:9735/stream", "albumCover", "appIcon");
+      await _flutterRadioPlayer.init("Flutter Radio Example", "Live",
+          "http://142.4.217.133:9735/stream", "albumCover", "appIcon");
     } on PlatformException {
       print("Exception occured while trying to register the services.");
     }
@@ -37,21 +37,20 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Flutter Radio Player Example'),
         ),
         body: Center(
-          child: IconButton(onPressed: () async {
-            if (!isPlaying) {
-              await FlutterRadioPlayer.play();
-              setState(() {
-                isPlaying = true;
-              });
-            } else {
-              await FlutterRadioPlayer.pause();
-              setState(() {
-                isPlaying = false;
-              });
-            }
-          },
-          icon: isPlaying ? Icon(Icons.pause) : Icon(Icons.play_arrow),
-          )
+          child: StreamBuilder(
+              stream: _flutterRadioPlayer.isPlayingStream,
+              initialData: false,
+              builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
+                print("object data: " + snapshot.data.toString());
+                return IconButton(
+                    onPressed: () async {
+                      print("button press data: " + snapshot.data.toString());
+                      await _flutterRadioPlayer.playOrPause();
+                    },
+                    icon: snapshot.data
+                        ? Icon(Icons.pause)
+                        : Icon(Icons.play_arrow));
+              }),
         ),
       ),
     );

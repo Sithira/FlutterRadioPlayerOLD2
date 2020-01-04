@@ -10,21 +10,27 @@ import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding
 import io.flutter.plugin.common.BinaryMessenger
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.EventChannel.EventSink
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry.Registrar
+import me.sithiramunasinghe.flutter_radio_player.enums.PlayerMethods
 import me.sithiramunasinghe.flutter_radio_player.services.PlayerItem
 import me.sithiramunasinghe.flutter_radio_player.services.RadioPlayerService
 
 
 /** FlutterRadioPlayerPlugin */
-public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
+public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
 
     private var methodChannel: MethodChannel? = null
 
     private val methodChannelName = "flutter_radio_player"
+    private val eventChannelName = "flutter_radio_player_stream"
+
+    private var mEventSink: EventSink? = null
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPluginBinding) {
         onAttachedToEngine(flutterPluginBinding.applicationContext, flutterPluginBinding.binaryMessenger)
@@ -36,6 +42,10 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         methodChannel!!.setMethodCallHandler(this)
 
         serviceIntent = Intent(applicationContext, RadioPlayerService::class.java)
+
+        val eventChannel = EventChannel(binaryMessenger, eventChannelName)
+        eventChannel.setStreamHandler(this)
+
     }
 
     // This static function is optional and equivalent to onAttachedToEngine. It supports the old
@@ -64,22 +74,60 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: Result) {
 
         when (call.method) {
-            "initService" -> {
+            PlayerMethods.IS_PLAYING.value -> {
+                if (mEventSink != null) {
+                    val playStatus = radioPlayerService?.isPlaying()
+                    Log.d(TAG, "is playing service invoked with result: $playStatus")
+                    result.success(playStatus)
+                    mEventSink!!.success(playStatus)
+                }
+            }
+            PlayerMethods.PLAYORPAUSE.value -> {
+                if (radioPlayerService?.isPlaying()!!) {
+                    radioPlayerService?.pause()
+                } else {
+                    radioPlayerService?.play()
+                }
+
+                result.success(radioPlayerService?.isPlaying())
+            }
+            PlayerMethods.PLAY.value -> {
+                Log.d(TAG, "play service invoked")
+                if (radioPlayerService != null) {
+                    radioPlayerService?.play()
+                    methodChannel?.invokeMethod("isPlaying", true)
+
+                }
+
+                result.success(null)
+            }
+            PlayerMethods.PAUSE.value -> {
+                Log.d(TAG, "pause service invoked")
+                if (radioPlayerService != null) {
+                    radioPlayerService?.pause()
+                    methodChannel?.invokeMethod("isPlaying", false)
+                }
+                result.success(null)
+            }
+            PlayerMethods.STOP.value -> {
+                Log.d(TAG, "stop service invoked")
+                if (radioPlayerService != null) {
+                    applicationContext?.unbindService(serviceConnection)
+                    radioPlayerService?.stop()
+                    methodChannel?.invokeMethod("isPlaying", false)
+                }
+                result.success(null)
+            }
+            PlayerMethods.INIT.value -> {
 
                 Log.d(TAG, "start service invoked")
 
-                // todo: move to private method.
-                val url = call.argument<String>("streamURL")
-                val appName = call.argument<String>("appName")
-                val subTitle = call.argument<String>("subTitle")
-                val appIcon = call.argument<String>("appIcon")
-                val bigIcon = call.argument<String>("appIconBig")
-
-                val playerItem = PlayerItem(appName!!, subTitle!!, url!!, appIcon!!, bigIcon!!)
+                // player item
+                val playerItem = getPlayerItem(call)
 
                 if (radioPlayerService != null) {
 
-                    if (radioPlayerService?.streamURL != url) {
+                    if (radioPlayerService?.streamURL != playerItem.streamUrl) {
                         radioPlayerService?.stop()
                         serviceIntent = setIntentData(serviceIntent!!, playerItem)
 
@@ -102,47 +150,20 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 result.success(null)
 
             }
-            "stop" -> {
-                Log.d(TAG, "stop service invoked")
-                if (radioPlayerService != null) {
-                    applicationContext?.unbindService(serviceConnection)
-                    radioPlayerService?.stop()
-                }
-                result.success(null)
-            }
-            "pause" -> {
-                Log.d(TAG, "pause service invoked")
-                if (radioPlayerService != null) {
-                    radioPlayerService?.pause()
-                }
-                result.success(null)
-            }
-            "play" -> {
-                Log.d(TAG, "play service invoked")
-                if (radioPlayerService != null) {
-                    radioPlayerService?.play()
-                }
-
-                result.success(null)
-            }
-            "unbind" -> {
-                Log.d(TAG, "unbind service invoked")
-                if (radioPlayerService != null) {
-                    applicationContext?.unbindService(serviceConnection)
-                    result.success(null)
-                }
-            }
-            "checkIfBound" -> {
-                Log.d(TAG, "checking bound service invoked")
-                if (!isBound) {
-                    applicationContext?.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
-                }
-                result.success(null)
-            }
-            "isPlaying" -> {
-                Log.d(TAG, "is playing service invoked")
-                result.success(radioPlayerService?.isPlaying())
-            }
+//            "unbind" -> {
+//                Log.d(TAG, "unbind service invoked")
+//                if (radioPlayerService != null) {
+//                    applicationContext?.unbindService(serviceConnection)
+//                    result.success(null)
+//                }
+//            }
+//            "checkIfBound" -> {
+//                Log.d(TAG, "checking bound service invoked")
+//                if (!isBound) {
+//                    applicationContext?.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
+//                }
+//                result.success(null)
+//            }
             else -> result.notImplemented()
         }
 
@@ -174,5 +195,29 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         applicationContext = null
         methodChannel?.setMethodCallHandler(null)
         methodChannel = null
+    }
+
+    /**
+     * Make a new player item obj from method call.
+     */
+    private fun getPlayerItem(methodCall: MethodCall): PlayerItem {
+
+        Log.d(TAG, "Mapping method call to player item object")
+
+        val url = methodCall.argument<String>("streamURL")
+        val appName = methodCall.argument<String>("appName")
+        val subTitle = methodCall.argument<String>("subTitle")
+        val appIcon = methodCall.argument<String>("appIcon")
+        val bigIcon = methodCall.argument<String>("appIconBig")
+
+        return PlayerItem(appName!!, subTitle!!, url!!, appIcon!!, bigIcon!!)
+    }
+
+    override fun onListen(arguments: Any?, events: EventSink?) {
+        mEventSink = events
+    }
+
+    override fun onCancel(arguments: Any?) {
+        mEventSink = null
     }
 }

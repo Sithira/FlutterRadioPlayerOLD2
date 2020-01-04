@@ -25,7 +25,7 @@ import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import com.google.android.exoplayer2.util.Util.getUserAgent
 import me.sithiramunasinghe.flutter_radio_player.R
-import me.sithiramunasinghe.flutter_radio_player.player.enums.PlaybackStatus
+import me.sithiramunasinghe.flutter_radio_player.enums.PlaybackStatus
 import org.greenrobot.eventbus.EventBus
 import org.jetbrains.anko.AnkoLogger
 import org.jetbrains.anko.info
@@ -107,16 +107,10 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
                     }
                     else -> PlaybackStatus.IDLE
                 }
-
-                if (EventBus.getDefault().hasSubscriberForEvent(String::class.java)) {
-                    EventBus.getDefault().post(playbackState.toString())
-                }
             }
 
             override fun onPlayerError(error: ExoPlaybackException?) {
-                if (EventBus.getDefault().hasSubscriberForEvent(String::class.java)) {
-                    EventBus.getDefault().post(PlaybackStatus.ERROR)
-                }
+                playbackStatus = PlaybackStatus.ERROR
             }
         }
 
@@ -262,21 +256,19 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
     }
 
     fun play() {
-        info { "playing audio $player" }
+        info { "playing audio $player ..." }
         player?.playWhenReady = true
     }
 
     fun stop() {
-        info { "stopping audio $player" }
+        info { "stopping audio $player ..." }
         player?.stop()
     }
 
     fun isPlaying(): Boolean {
-        return this.playbackStatus == PlaybackStatus.PLAYING
-    }
-
-    fun getPlaybackStatus(): String {
-        return playbackStatus.toString()
+        val isPlaying = this.playbackStatus == PlaybackStatus.PLAYING
+        info { "is playing status: $isPlaying" }
+        return isPlaying
     }
 
 }

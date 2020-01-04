@@ -1,4 +1,4 @@
-package me.sithiramunasinghe.flutter_radio_player.player.enums
+package me.sithiramunasinghe.flutter_radio_player.enums
 
 enum class PlaybackStatus {
 
