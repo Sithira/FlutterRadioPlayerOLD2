@@ -39,7 +39,7 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: StreamBuilder(
               stream: _flutterRadioPlayer.isPlayingStream,
-              initialData: "false",
+              initialData: "flutter_radio_paused",
               builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
                 String returnData = snapshot.data;
                 print("object data: " + returnData);
