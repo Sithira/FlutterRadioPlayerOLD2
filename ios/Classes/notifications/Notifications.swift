@@ -6,3 +6,8 @@
 //
 
 import Foundation
+import NotificationCenter
+
+class Notifications {
+    static let playbackNotification = NSNotification.Name(rawValue: Constants.NotificationName)
+}

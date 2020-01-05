@@ -10,7 +10,7 @@ import AVFoundation
 import MediaPlayer
 
 class FlutterRadioPlayerService {
-    
+
     private var avPlayer: AVPlayer?
     private var avPlayerItem: AVPlayerItem?
     
@@ -29,6 +29,7 @@ class FlutterRadioPlayerService {
     func play() -> PlayerStatus {
         print("invoking play method on service")
         if(!isPlaying()) {
+            NotificationCenter.default.post(name: Notifications.playbackNotification, object: nil, userInfo: ["status": Constants.FLUTTER_RADIO_PLAYING])
             avPlayer?.play()
             return PlayerStatus.PLAYING
         }
@@ -40,6 +41,7 @@ class FlutterRadioPlayerService {
         print("invoking pause method on service")
         if (isPlaying()) {
             avPlayer?.pause()
+            NotificationCenter.default.post(name: Notifications.playbackNotification, object: nil, userInfo: ["status": Constants.FLUTTER_RADIO_PAUSED])
             return PlayerStatus.IDLE
         }
         
@@ -49,6 +51,7 @@ class FlutterRadioPlayerService {
     func stop() -> PlayerStatus {
         print("invoking stop method on service")
         if (isPlaying()) {
+            NotificationCenter.default.post(name: Notifications.playbackNotification, object: nil, userInfo: ["status": Constants.FLUTTER_RADIO_STOPPED])
             avPlayer = AVPlayer()
         }
         
