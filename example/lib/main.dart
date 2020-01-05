@@ -23,7 +23,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> initRadioService() async {
     try {
       await _flutterRadioPlayer.init("Flutter Radio Example", "Live",
-          "http://142.4.217.133:9735/stream", "albumCover", "appIcon");
+          "http://209.133.216.3:7018/stream", "albumCover", "appIcon");
     } on PlatformException {
       print("Exception occured while trying to register the services.");
     }
@@ -39,17 +39,26 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: StreamBuilder(
               stream: _flutterRadioPlayer.isPlayingStream,
-              initialData: false,
-              builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
-                print("object data: " + snapshot.data.toString());
-                return IconButton(
-                    onPressed: () async {
-                      print("button press data: " + snapshot.data.toString());
-                      await _flutterRadioPlayer.playOrPause();
-                    },
-                    icon: snapshot.data
-                        ? Icon(Icons.pause)
-                        : Icon(Icons.play_arrow));
+              initialData: "false",
+              builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+                String returnData = snapshot.data;
+                print("object data: " + returnData);
+                if (returnData == FlutterRadioPlayer.flutter_radio_stopped) {
+                  return RaisedButton(
+                      child: Text("Start listening now"),
+                      onPressed: () async {
+                        await initRadioService();
+                      });
+                } else {
+                  return IconButton(
+                      onPressed: () async {
+                        print("button press data: " + snapshot.data.toString());
+                        await _flutterRadioPlayer.playOrPause();
+                      },
+                      icon: snapshot.data == FlutterRadioPlayer.flutter_radio_playing
+                          ? Icon(Icons.pause)
+                          : Icon(Icons.play_arrow));
+                }
               }),
         ),
       ),

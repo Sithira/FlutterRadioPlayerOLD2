@@ -7,5 +7,4 @@ enum class PlayerMethods(val value: String) {
     PAUSE("pause"),
     STOP("stop"),
     IS_PLAYING("stop")
-
 }

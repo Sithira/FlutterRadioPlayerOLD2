@@ -14,19 +14,25 @@ import android.os.Build
 import android.os.IBinder
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.annotation.Nullable
-import com.google.android.exoplayer2.*
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.android.exoplayer2.C
+import com.google.android.exoplayer2.ExoPlaybackException
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.ui.PlayerNotificationManager
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import com.google.android.exoplayer2.util.Util.getUserAgent
+import me.sithiramunasinghe.flutter_radio_player.FLUTTER_RADIO_PAUSED
+import me.sithiramunasinghe.flutter_radio_player.FLUTTER_RADIO_PLAYING
+import me.sithiramunasinghe.flutter_radio_player.FLUTTER_RADIO_STOPPED
+import me.sithiramunasinghe.flutter_radio_player.FlutterRadioPlayerPlugin.Companion.broadcastActionName
 import me.sithiramunasinghe.flutter_radio_player.R
 import me.sithiramunasinghe.flutter_radio_player.enums.PlaybackStatus
-import org.greenrobot.eventbus.EventBus
 import org.jetbrains.anko.AnkoLogger
 import org.jetbrains.anko.info
 
@@ -38,6 +44,8 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
 
     private lateinit var playbackStatus: PlaybackStatus
 
+    private var localBroadcastManager: LocalBroadcastManager? = null
+
     // context
     private val context = this
 
@@ -48,9 +56,9 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
     private val playerNotificationManager: PlayerNotificationManager? = null
 
     // session keys
-    private val playbackChannelId = "flutter_radio_player_channel_id"
     private val playbackNotificationId = 1025
     private val mediaSessionId = "flutter_radio_radio_media_session"
+    private val playbackChannelId = "flutter_radio_player_channel_id"
 
     // stream URL
     var streamURL: String? = null
@@ -77,6 +85,8 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
+        localBroadcastManager = LocalBroadcastManager.getInstance(context)
+
         // get details
         val appName = intent!!.getStringExtra("appName")
         val subTitle = intent.getStringExtra("subTitle")
@@ -86,30 +96,43 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
 
         streamURL = streamUrl
 
-        player = ExoPlayerFactory.newSimpleInstance(this, DefaultTrackSelector())
+        player = SimpleExoPlayer.Builder(context).build()
 
-        val dataSourceFactory = DefaultDataSourceFactory(context, getUserAgent(context, "flutter_radio_player"))
+        val dataSourceFactory = DefaultDataSourceFactory(context, getUserAgent(context, appName))
 
         val audioSource = buildMediaSource(dataSourceFactory, streamURL!!)
 
         val playerEvents = object : Player.EventListener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+
+                val broadcastIntent = Intent(broadcastActionName)
+
                 playbackStatus = when (playbackState) {
                     Player.STATE_BUFFERING -> PlaybackStatus.LOADING
                     Player.STATE_ENDED -> {
                         stopSelf()
+                        localBroadcastManager?.sendBroadcast(broadcastIntent.putExtra("status", FLUTTER_RADIO_STOPPED))
                         PlaybackStatus.STOPPED
                     }
                     Player.STATE_READY -> if (playWhenReady) {
+                        localBroadcastManager?.sendBroadcast(broadcastIntent.putExtra("status", FLUTTER_RADIO_PLAYING))
                         PlaybackStatus.PLAYING
                     } else {
+                        localBroadcastManager?.sendBroadcast(broadcastIntent.putExtra("status", FLUTTER_RADIO_PAUSED))
                         PlaybackStatus.PAUSED
                     }
-                    else -> PlaybackStatus.IDLE
+                    else -> {
+                        localBroadcastManager?.sendBroadcast(broadcastIntent.putExtra("status", FLUTTER_RADIO_STOPPED))
+                        PlaybackStatus.IDLE
+                    }
+                }
+
+                info {
+                    "onPlayerStateChanged: $playbackStatus"
                 }
             }
 
-            override fun onPlayerError(error: ExoPlaybackException?) {
+            override fun onPlayerError(error: ExoPlaybackException) {
                 playbackStatus = PlaybackStatus.ERROR
             }
         }
@@ -128,12 +151,12 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
                 R.string.channel_description,
                 playbackNotificationId,
                 object : PlayerNotificationManager.MediaDescriptionAdapter {
-                    override fun getCurrentContentTitle(player: Player): String? {
+                    override fun getCurrentContentTitle(player: Player): String {
                         return appName
                     }
 
                     @Nullable
-                    override fun createCurrentContentIntent(player: Player): PendingIntent? {
+                    override fun createCurrentContentIntent(player: Player): PendingIntent {
                         return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
                     }
 

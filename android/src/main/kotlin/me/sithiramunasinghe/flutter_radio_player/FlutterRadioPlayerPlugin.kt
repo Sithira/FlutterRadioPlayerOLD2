@@ -1,12 +1,10 @@
 package me.sithiramunasinghe.flutter_radio_player
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
+import android.content.*
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.NonNull
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding
 import io.flutter.plugin.common.BinaryMessenger
@@ -32,6 +30,8 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
 
     private var mEventSink: EventSink? = null
 
+    private var playerItem: PlayerItem? = null
+
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPluginBinding) {
         onAttachedToEngine(flutterPluginBinding.applicationContext, flutterPluginBinding.binaryMessenger)
     }
@@ -46,6 +46,7 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
         val eventChannel = EventChannel(binaryMessenger, eventChannelName)
         eventChannel.setStreamHandler(this)
 
+        LocalBroadcastManager.getInstance(context).registerReceiver(broadcastReceiver, IntentFilter("playback_status"))
     }
 
     // This static function is optional and equivalent to onAttachedToEngine. It supports the old
@@ -63,138 +64,67 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
             val instance = FlutterRadioPlayerPlugin()
             instance.onAttachedToEngine(registrar.activeContext(), registrar.messenger())
         }
+
+        const val broadcastActionName = "playback_status"
+        const val TAG: String = "FlutterRadioPlayerPlgin"
+
         var applicationContext: Context? = null
         var radioPlayerService: RadioPlayerService? = null
         var isBound = false
         var serviceIntent: Intent? = null
-
-        const val TAG: String = "FlutterRadioPlayerPlgin"
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
 
         when (call.method) {
             PlayerMethods.IS_PLAYING.value -> {
-                if (mEventSink != null) {
-                    val playStatus = radioPlayerService?.isPlaying()
-                    Log.d(TAG, "is playing service invoked with result: $playStatus")
-                    result.success(playStatus)
-                    mEventSink!!.success(playStatus)
-                }
+                val playStatus = isPlaying()
+                Log.d(TAG, "is playing service invoked with result: $playStatus")
+                result.success(playStatus)
             }
             PlayerMethods.PLAYORPAUSE.value -> {
-                if (radioPlayerService?.isPlaying()!!) {
-                    radioPlayerService?.pause()
-                } else {
-                    radioPlayerService?.play()
-                }
-
-                result.success(radioPlayerService?.isPlaying())
+                playOrPause()
+                result.success(null)
             }
             PlayerMethods.PLAY.value -> {
                 Log.d(TAG, "play service invoked")
-                if (radioPlayerService != null) {
-                    radioPlayerService?.play()
-                    methodChannel?.invokeMethod("isPlaying", true)
-
-                }
-
+                play()
                 result.success(null)
             }
             PlayerMethods.PAUSE.value -> {
                 Log.d(TAG, "pause service invoked")
-                if (radioPlayerService != null) {
-                    radioPlayerService?.pause()
-                    methodChannel?.invokeMethod("isPlaying", false)
-                }
+                pause()
                 result.success(null)
             }
             PlayerMethods.STOP.value -> {
                 Log.d(TAG, "stop service invoked")
-                if (radioPlayerService != null) {
-                    applicationContext?.unbindService(serviceConnection)
-                    radioPlayerService?.stop()
-                    methodChannel?.invokeMethod("isPlaying", false)
-                }
+                stop()
                 result.success(null)
             }
             PlayerMethods.INIT.value -> {
-
                 Log.d(TAG, "start service invoked")
-
-                // player item
-                val playerItem = getPlayerItem(call)
-
-                if (radioPlayerService != null) {
-
-                    if (radioPlayerService?.streamURL != playerItem.streamUrl) {
-                        radioPlayerService?.stop()
-                        serviceIntent = setIntentData(serviceIntent!!, playerItem)
-
-                        if (!isBound) {
-                            applicationContext?.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
-                        }
-                        applicationContext?.startService(serviceIntent)
-                    } else {
-                        Log.d(TAG, "Player is already playing..")
-                    }
-                } else {
-                    serviceIntent = setIntentData(serviceIntent!!, playerItem)
-
-                    if (!isBound) {
-                        applicationContext?.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
-                    }
-                    applicationContext?.startService(serviceIntent)
-                }
-
+                playerItem = getPlayerItem(call)
+                init()
                 result.success(null)
-
             }
-//            "unbind" -> {
-//                Log.d(TAG, "unbind service invoked")
-//                if (radioPlayerService != null) {
-//                    applicationContext?.unbindService(serviceConnection)
-//                    result.success(null)
-//                }
-//            }
-//            "checkIfBound" -> {
-//                Log.d(TAG, "checking bound service invoked")
-//                if (!isBound) {
-//                    applicationContext?.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
-//                }
-//                result.success(null)
-//            }
             else -> result.notImplemented()
         }
 
-    }
-
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceDisconnected(name: ComponentName?) {
-            isBound = false
-            radioPlayerService = null
-        }
-
-        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            val localBinder = binder as RadioPlayerService.LocalBinder
-            radioPlayerService = localBinder.service
-            isBound = true
-        }
-    }
-
-    private fun setIntentData(intent: Intent, playerItem: PlayerItem): Intent {
-        intent.putExtra("streamUrl", playerItem.streamUrl)
-        intent.putExtra("appName", playerItem.appName)
-        intent.putExtra("subTitle", playerItem.subTitle)
-        intent.putExtra("appIcon", playerItem.appIcon)
-        intent.putExtra("appIconBig", playerItem.appIconBig)
-        return intent
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPluginBinding) {
         applicationContext = null
         methodChannel?.setMethodCallHandler(null)
         methodChannel = null
+        LocalBroadcastManager.getInstance(applicationContext!!).unregisterReceiver(broadcastReceiver)
+    }
+
+    override fun onListen(arguments: Any?, events: EventSink?) {
+        mEventSink = events
+    }
+
+    override fun onCancel(arguments: Any?) {
+        mEventSink = null
     }
 
     /**
@@ -213,11 +143,82 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
         return PlayerItem(appName!!, subTitle!!, url!!, appIcon!!, bigIcon!!)
     }
 
-    override fun onListen(arguments: Any?, events: EventSink?) {
-        mEventSink = events
+    /**
+     * Set data for the RadioPlayerService
+     */
+    private fun setIntentData(intent: Intent, playerItem: PlayerItem): Intent {
+        intent.putExtra("streamUrl", playerItem.streamUrl)
+        intent.putExtra("appName", playerItem.appName)
+        intent.putExtra("subTitle", playerItem.subTitle)
+        intent.putExtra("appIcon", playerItem.appIcon)
+        intent.putExtra("appIconBig", playerItem.appIconBig)
+        return intent
     }
 
-    override fun onCancel(arguments: Any?) {
-        mEventSink = null
+    /**
+     * Initializes the connection
+     */
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceDisconnected(name: ComponentName?) {
+            isBound = false
+            radioPlayerService = null
+        }
+
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            val localBinder = binder as RadioPlayerService.LocalBinder
+            radioPlayerService = localBinder.service
+            isBound = true
+        }
+    }
+
+    /**
+     * Broadcast receiver for the playback callbacks
+     */
+    private var broadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent != null) {
+                val returnStatus = intent.getStringExtra("status")
+                println("Received status: $returnStatus")
+                mEventSink?.success(returnStatus)
+            }
+        }
+    }
+
+    private fun init() {
+        Log.i(TAG, "Attempting to initialize service...")
+        if (!isBound) {
+            Log.i(TAG, "Service not bound, binding now....")
+            serviceIntent = setIntentData(serviceIntent!!, playerItem!!)
+            applicationContext!!.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
+            applicationContext!!.startService(serviceIntent)
+        }
+    }
+
+    private fun isPlaying(): Boolean {
+        Log.i(TAG, "Attempting to get playing status....")
+        val playingStatus = radioPlayerService!!.isPlaying()
+        Log.i(TAG, "Payback-status: $playingStatus")
+        return playingStatus
+    }
+
+    private fun playOrPause() {
+        Log.i(TAG, "Attempting to either play or pause...")
+        if (isPlaying()) pause() else play()
+    }
+
+    private fun play() {
+        Log.i(TAG, "Attempting to play music....")
+        radioPlayerService?.play()
+    }
+
+    private fun pause() {
+        Log.i(TAG, "Attempting to pause music....")
+        radioPlayerService!!.pause()
+    }
+
+    private fun stop() {
+        Log.i(TAG, "Attempting to stop music and unbind services....")
+        applicationContext!!.unbindService(serviceConnection)
+        radioPlayerService!!.stop()
     }
 }

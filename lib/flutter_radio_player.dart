@@ -1,15 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:rxdart/rxdart.dart';
 
 class FlutterRadioPlayer {
   static const MethodChannel _channel =
       const MethodChannel('flutter_radio_player');
 
-  static const EventChannel _eventChannel = const EventChannel("flutter_radio_player_stream");
+  static const EventChannel _eventChannel =
+      const EventChannel("flutter_radio_player_stream");
 
-  static Stream<bool> _isPlayingStream;
+  // constants to support event channel
+  static const flutter_radio_stopped = "flutter_radio_stopped";
+  static const flutter_radio_playing = "flutter_radio_playing";
+  static const flutter_radio_paused = "flutter_radio_paused";
+
+  static Stream<String> _isPlayingStream;
 
   Future<void> init(String appName, String subTitle, String streamURL,
       String albumCover, String appIcon) async {
@@ -45,9 +50,17 @@ class FlutterRadioPlayer {
 
   get isPlayingStream {
     if (_isPlayingStream == null) {
-      _isPlayingStream = _eventChannel.receiveBroadcastStream().map<bool>((value) => value);
+      _isPlayingStream =
+          _eventChannel.receiveBroadcastStream().map<String>((value) => value);
     }
     return _isPlayingStream;
   }
-
 }
+
+/// Flutter_radio_playback status
+enum PlaybackStatus {
+  flutter_radio_stopped,
+  flutter_radio_playing,
+  flutter_radio_paused
+}
+

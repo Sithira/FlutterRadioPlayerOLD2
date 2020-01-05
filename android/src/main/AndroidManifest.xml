@@ -7,7 +7,7 @@
 
     <!--  Services for the plugin  -->
     <application android:usesCleartextTraffic="true">
-        <service android:name="me.sithiramunasinghe.flutter_radio_player.services.RadioPlayerService"/>
+        <service android:name=".services.RadioPlayerService"/>
     </application>
 
 </manifest>
