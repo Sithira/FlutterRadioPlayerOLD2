@@ -48,6 +48,7 @@ class FlutterRadioPlayer {
     return isPlaying;
   }
 
+  /// Get the player stream.
   get isPlayingStream {
     if (_isPlayingStream == null) {
       _isPlayingStream =

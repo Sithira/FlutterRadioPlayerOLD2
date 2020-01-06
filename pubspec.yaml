@@ -1,7 +1,7 @@
 name: flutter_radio_player
 description: Flutter plugin for oneline radio streams
 version: 0.0.1
-homepage: http://sithira-munasinghe.me/flutter/packages/flutter-radio-player
+homepage: http://sithira-munasinghe.me/flutter/flutter-radio-player
 repository: http://github.com/Sithira/FlutterRadioPlayer
 
 environment:
@@ -10,7 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  rxdart: ^0.23.1
 
 dev_dependencies:
   flutter_test:
