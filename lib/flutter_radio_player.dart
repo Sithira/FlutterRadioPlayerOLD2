@@ -48,6 +48,10 @@ class FlutterRadioPlayer {
     return isPlaying;
   }
 
+  Future<void> setVolume(double volume) async {
+    await _channel.invokeMethod("setVolume", {"volume": volume});
+  }
+
   /// Get the player stream.
   get isPlayingStream {
     if (_isPlayingStream == null) {
@@ -64,4 +68,3 @@ enum PlaybackStatus {
   flutter_radio_playing,
   flutter_radio_paused
 }
-

@@ -82,7 +82,7 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
                 Log.d(TAG, "is playing service invoked with result: $playStatus")
                 result.success(playStatus)
             }
-            PlayerMethods.PLAYORPAUSE.value -> {
+            PlayerMethods.PLAY_PAUSE.value -> {
                 playOrPause()
                 result.success(null)
             }
@@ -105,6 +105,12 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
                 Log.d(TAG, "start service invoked")
                 playerItem = getPlayerItem(call)
                 init()
+                result.success(null)
+            }
+            PlayerMethods.SET_VOLUME.value -> {
+                val volume = call.argument<Double>("volume")!!
+                Log.d(TAG, "Changing volume to: $volume")
+                setVolume(volume)
                 result.success(null)
             }
             else -> result.notImplemented()
@@ -220,5 +226,10 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
         Log.i(TAG, "Attempting to stop music and unbind services....")
         applicationContext!!.unbindService(serviceConnection)
         radioPlayerService!!.stop()
+    }
+
+    private fun setVolume(volume: Double) {
+        Log.i(TAG, "Attempting to change volume...")
+        radioPlayerService!!.setVolume(volume)
     }
 }

@@ -294,4 +294,9 @@ class RadioPlayerService : Service(), AudioManager.OnAudioFocusChangeListener, A
         return isPlaying
     }
 
+    fun setVolume(volume: Double) {
+        info { "Changing volume to : $volume" }
+        player?.volume = volume.toFloat()
+    }
+
 }

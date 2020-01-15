@@ -2,7 +2,7 @@ import Flutter
 import UIKit
 
 public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
-
+    
     private var radioPlayerService: FlutterRadioPlayerService = FlutterRadioPlayerService()
     
     private var mEventSink: FlutterEventSink?
@@ -26,8 +26,8 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin, FlutterStre
                 let appName = args["appName"] as? String,
                 let subTitle = args["subTitle"] as? String
                 
-//                let appIcon = args["appIcon"] as? String,
-//                let appIconBig = args["appIconBig"] as? String
+                //                let appIcon = args["appIcon"] as? String,
+                //                let appIconBig = args["appIconBig"] as? String
                 
             {
                 radioPlayerService.initService(streamURL: streamURL, serviceName: appName, secondTitle: subTitle)
@@ -40,7 +40,7 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin, FlutterStre
             if (radioPlayerService.isPlaying()) {
                 _ = radioPlayerService.pause()
             } else {
-               _ = radioPlayerService.play()
+                _ = radioPlayerService.play()
             }
         case "play":
             print("method called to play from service")
@@ -70,6 +70,14 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin, FlutterStre
             print("method called to is_playing from service")
             result(radioPlayerService.isPlaying())
             break
+        case "setVolume":
+            print("method called to setVolume from service")
+            if let args = call.arguments as? Dictionary<String, Any>,
+                let volume = args["volume"] as? NSNumber {
+                print("Recieved set to volume: \(volume)")
+                radioPlayerService.setVolume(volume: volume)
+            }
+            result(nil)
         default:
             result(nil)
         }

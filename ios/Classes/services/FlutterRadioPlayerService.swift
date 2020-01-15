@@ -64,6 +64,12 @@ class FlutterRadioPlayerService {
         return status
     }
     
+    func setVolume(volume: NSNumber) -> Void {
+        let formattedVolume = volume.floatValue;
+        print("Setting volume to: \(formattedVolume)")
+        avPlayer?.volume = formattedVolume
+    }
+    
     private func initRemoteTransportControl(appName: String, subTitle: String) {
         
         do {
