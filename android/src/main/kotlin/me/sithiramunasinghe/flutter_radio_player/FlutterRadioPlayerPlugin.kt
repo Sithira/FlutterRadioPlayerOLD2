@@ -119,7 +119,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler, EventC
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPluginBinding) {
-        applicationContext = null
         methodChannel?.setMethodCallHandler(null)
         methodChannel = null
         LocalBroadcastManager.getInstance(applicationContext!!).unregisterReceiver(broadcastReceiver)
